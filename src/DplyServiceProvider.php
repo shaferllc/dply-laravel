@@ -289,7 +289,9 @@ class DplyServiceProvider extends ServiceProvider
         }
         $s3 = $buckets !== [] && class_exists(AwsS3V3Adapter::class);
         foreach ($disks as $name => $diskHost) {
-            $this->app['config']->set('filesystems.disks.'.$name, $s3 && isset($buckets[$name]) ? [
+            // The app's own throw/report win: a backup command that set throw => true must see a failed upload.
+            $own = array_intersect_key((array) $this->app['config']->get('filesystems.disks.'.$name, []), ['throw' => true, 'report' => true]);
+            $this->app['config']->set('filesystems.disks.'.$name, $own + ($s3 && isset($buckets[$name]) ? [
                 'driver' => 's3',
                 'key' => env('AWS_ACCESS_KEY_ID'),
                 'secret' => env('AWS_SECRET_ACCESS_KEY'),
@@ -302,7 +304,7 @@ class DplyServiceProvider extends ServiceProvider
             ] : [
                 'driver' => 'dply',
                 'host' => $diskHost,
-            ]);
+            ]));
         }
         if ($host !== '' && (string) env('AWS_ACCESS_KEY_ID', '') === '') {
             $this->app['config']->set('filesystems.disks.s3', [
